@@ -7,10 +7,7 @@
 //
 
 #import "NSObject+VODBCache.h"
-#import "MJExtension.h"
-#import "VODBCache.h"
 #import <objc/runtime.h>
-#import "VODBCacheError.h"
 
 /**
  *  SQL语句Const
@@ -27,10 +24,12 @@ static const void *VOUpdateTimeKey = &VOUpdateTimeKey;
 
 @implementation NSObject (VODBCache)
 
+#pragma mark - 初始化
 + (void)initVODBCache{
     [self createCacheTable];
 }
 
+#pragma mark - 附加属性
 - (void)setVoconstraint:(NSString *)voconstraint{
     objc_setAssociatedObject(self, &VOConstraintKey, voconstraint, OBJC_ASSOCIATION_COPY_NONATOMIC);
 }
@@ -58,18 +57,18 @@ static const void *VOUpdateTimeKey = &VOUpdateTimeKey;
 
 #pragma mark - 缓存数据
 - (void)cacheObject{
-    [self cacheObjectCompletion:nil];
+    [self cacheObjectSuccess:nil failure:nil];
 }
 
-- (void)cacheObjectCompletion:(void (^)(id obj, NSError *error))completion{
+- (void)cacheObjectSuccess:(void (^)(id data))success
+                   failure:(void (^)(NSError *error))failure{
     // 1.表名
     NSString *tableName = [[self class] dbTableName];
     // 2.生成字段区域和值区域
     NSDictionary *cacheKeyValues = [self insertKeyValues];
     if (!cacheKeyValues) {
-        if (completion) {
-            completion(self, [VODBCacheError errorWithVODBCacheErrorCode:VODBCacheErrorNoCacheField]);
-        }
+        NSError *error = [VODBCacheError errorWithVODBCacheErrorCode:VODBCacheErrorNoCacheField];
+        [[self class] completionActionWithDB:nil data:error success:success failure:failure];
         return;
     }
     // 3.生成SQL语句
@@ -85,17 +84,15 @@ static const void *VOUpdateTimeKey = &VOUpdateTimeKey;
                 [self setVoconstraint:constraint];
             }
         }
-        if (completion) {
-            completion(self, result ? nil: [db lastError]);
-        }
+        [[self class] completionActionWithDB:db data:self success:success failure:failure];
     }];
 }
 
-+ (void)cacheObjectArray:(NSArray *)array{
-    [self cacheObjectArray:array completion:nil];
++ (void)cacheObjects:(NSArray *)array{
+    [self cacheObjects:array success:nil failure:nil];
 }
 
-+ (void)cacheObjectArray:(NSArray *)array completion:(void (^)(NSArray *array, NSError *error))completion{
++ (void)cacheObjects:(NSArray *)array success:(void (^)(NSArray *array))success failure:(void (^)(NSError *error))failure{
     // 1.表名
     NSString *tableName = [self dbTableName];
     [[VODBCache sharedCache].cacheQueue inTransaction:^(FMDatabase *db, BOOL *rollback) {
@@ -119,25 +116,23 @@ static const void *VOUpdateTimeKey = &VOUpdateTimeKey;
             }
         }
         *rollback = [db lastErrorCode] == 10;
-        if (completion) {
-            completion(array, [db lastError]);
-        }
+        [self completionActionWithDB:db data:array success:success failure:failure];
     }];
 }
 
+#pragma mark - 更新数据
 - (void)updateCacheObject{
-    [self updateCacheObjectCompletion:nil];
+    [self updateCacheObjectSuccess:nil failure:nil];
 }
 
-- (void)updateCacheObjectCompletion:(void (^)(id obj, NSError *error))completion{
+- (void)updateCacheObjectSuccess:(void (^)(id))success failure:(void (^)(NSError *))failure{
     // 1.表名
     NSString *tableName = [[self class] dbTableName];
     // 2.生成字段区域和值区域
     NSString *cacheKeyValues = [self updateKeyValues];
     if (!cacheKeyValues) {
-        if (completion) {
-            completion(self, [VODBCacheError errorWithVODBCacheErrorCode:VODBCacheErrorNoCacheField]);
-        }
+        NSError *error = [VODBCacheError errorWithVODBCacheErrorCode:VODBCacheErrorNoCacheField];
+        [[self class] completionActionWithDB:nil data:error success:success failure:failure];
         return;
     }
     // 3.生成SQL语句
@@ -155,13 +150,11 @@ static const void *VOUpdateTimeKey = &VOUpdateTimeKey;
                 [self setVoconstraint:constraint];
             }
         }
-        if (completion) {
-            completion(self, result ? nil: [db lastError]);
-        }
+        [[self class] completionActionWithDB:db data:self success:success failure:failure];
     }];
 }
 
-+ (void)updateCacheObjects:(NSArray *)array withValues:(NSArray *)values completion:(void (^)(id obj, NSError *error))completion{
++ (void)updateCacheObjects:(NSArray *)array withValues:(NSArray *)values success:(void (^)(NSArray *array))success failure:(void (^)(NSError *error))failure{
     // 1.表名
     NSString *tableName = [[self class] dbTableName];
     [[VODBCache sharedCache].cacheQueue inTransaction:^(FMDatabase *db, BOOL *rollback) {
@@ -186,27 +179,24 @@ static const void *VOUpdateTimeKey = &VOUpdateTimeKey;
             }
         }
         *rollback = [db lastErrorCode] == 10;
-        if (completion) {
-            completion(array, [db lastError]);
-        }
+        [self completionActionWithDB:db data:array success:success failure:failure];
     }];
 }
 
 
-+ (void)updateCacheObjectWithValues:(NSArray *)values condition:(NSArray *)condition{
-    [self updateCacheObjectWithValues:values condition:condition completion:nil];
++ (void)updateCacheObjectsWithValues:(NSArray *)values condition:(NSArray *)condition{
+    [self updateCacheObjectsWithValues:values condition:condition success:nil failure:nil];
 }
 
-+ (void)updateCacheObjectWithValues:(NSArray *)values condition:(NSArray *)condition completion:(void (^)(NSArray *array, NSError *error))completion{
++ (void)updateCacheObjectsWithValues:(NSArray *)values condition:(NSArray *)condition success:(void (^)(NSArray *array))success failure:(void (^)(NSError *error))failure{
     // 1.表名
     NSString *tableName = [[self class] dbTableName];
     // 2.生成字段区域和值区域
     NSString *cacheValues    = [self linkStringArrayWithAND:values updateTime:YES];
     NSString *cacheCondition = [self linkStringArrayWithAND:condition updateTime:NO];
     if (!cacheValues || !cacheCondition) {
-        if (completion) {
-            completion(nil, [VODBCacheError errorWithVODBCacheErrorCode:VODBCacheErrorInvalidValueOrCondition]);
-        }
+        NSError *error = [VODBCacheError errorWithVODBCacheErrorCode:VODBCacheErrorInvalidValueOrCondition];
+        [self completionActionWithDB:nil data:error success:success failure:failure];
         return;
     }
     // 3.生成SQL语句
@@ -215,56 +205,199 @@ static const void *VOUpdateTimeKey = &VOUpdateTimeKey;
            tableName,cacheValues, cacheCondition];
     // 4.执行SQL语句
     [[VODBCache sharedCache].cacheQueue inTransaction:^(FMDatabase *db, BOOL *rollback) {
-        BOOL result = [db executeQuery:sql];
-        if (completion) {
-            completion(nil, result ? nil: [db lastError]);
-        }
+        [db executeQuery:sql];
+        [self completionActionWithDB:db data:nil success:success failure:failure];
     }];
 }
 
 #pragma mark - 从缓存中删除数据
 - (void)removefromCache{
-    [self removefromCacheCompletion:nil];
+    [self removefromCacheSuccess:nil failure:nil];
 }
 
-- (void)removefromCacheCompletion:(void (^)(id obj))completion{
-    
+- (void)removefromCacheSuccess:(void (^)(id obj))success failure:(void (^)(NSError *error))failure{
+    // 1.表名
+    NSString *tableName = [[self class] dbTableName];
+    if (!self.voconstraint) {
+        NSError *error = [VODBCacheError errorWithVODBCacheErrorCode:VODBCacheErrorNoConstraint];
+        [[self class] completionActionWithDB:nil data:error success:success failure:failure];
+        return;
+    }
+    // 2.生成SQL语句
+    NSString *sql = [NSString stringWithFormat:@"DELETE FROM \"%@\" WHERE \"%@\" = %@", tableName, SQL_ConstraintKey, self.voconstraint];
+    // 3.执行SQL语句
+    [[VODBCache sharedCache].cacheQueue inTransaction:^(FMDatabase *db, BOOL *rollback) {
+        [db executeQuery:sql];
+        [[self class] completionActionWithDB:db data:self success:success failure:failure];
+    }];
 }
 
-+ (void)objectArrayRemoveFromCache:(NSArray *)array{
-    [self objectArrayRemoveFromCache:array completion:nil];
++ (void)removeCachedObjects:(NSArray *)array{
+    [self removeCachedObjects:array success:nil failure:nil];
 }
 
-+ (void)objectArrayRemoveFromCache:(NSArray *)array completion:(void (^)(NSArray *array))completion{
-    
++ (void)removeCachedObjects:(NSArray *)array
+                    success:(void (^)(NSArray *array))success
+                    failure:(void (^)(NSError *error))failure{
+    // 1.表名
+    NSString *tableName = [[self class] dbTableName];
+    // 2.生成SQL语句
+    NSMutableString *constaintStr = [NSMutableString string];
+    if (array && array.count > 0) {
+        for (id obj in array) {
+            if (obj && [obj respondsToSelector:@selector(voconstraint)]) {
+                [constaintStr appendFormat:@"%@,",[obj voconstraint]];
+            }
+        }
+    }
+    if (constaintStr.length <= 1) {
+        NSError *error = [VODBCacheError errorWithVODBCacheErrorCode:VODBCacheErrorNoCacheObject];
+        [self completionActionWithDB:nil data:error success:success failure:failure];
+        return;
+    }
+    [constaintStr deleteCharactersInRange:NSMakeRange(constaintStr.length - 1, 1)];
+    NSString *sql = [NSString stringWithFormat:@"DELETE FROM \"%@\" WHERE \"%@\" IN (%@)", tableName, SQL_ConstraintKey, constaintStr];
+    // 3.执行SQL语句
+    [[VODBCache sharedCache].cacheQueue inTransaction:^(FMDatabase *db, BOOL *rollback) {
+        [db executeQuery:sql];
+        [self completionActionWithDB:db data:self success:success failure:failure];
+    }];
 }
+
++ (void)removeCachedObjectsWithCondition:(NSArray *)condition
+                                 success:(void (^)(NSArray *array))success
+                                 failure:(void (^)(NSError *error))failure{
+    // 1.表名
+    NSString *tableName = [[self class] dbTableName];
+    // 2.生成SQL语句
+    NSString *conditionStr = [self linkStringArrayWithAND:condition updateTime:NO];
+    if (!conditionStr) {
+        NSError *error = [VODBCacheError errorWithVODBCacheErrorCode:VODBCacheErrorInvalidValueOrCondition];
+        [self completionActionWithDB:nil data:error success:success failure:failure];
+        return;
+    }
+    NSString *sql = [NSString stringWithFormat:@"DELETE FROM \"%@\" WHERE %@", tableName, conditionStr];
+    // 3.执行SQL语句
+    [[VODBCache sharedCache].cacheQueue inTransaction:^(FMDatabase *db, BOOL *rollback) {
+        [db executeQuery:sql];
+        [self completionActionWithDB:db data:nil success:success failure:failure];
+    }];
+}
+
 
 #pragma mark - 从缓存中读取数据
-+ (void)objectArrayFromCache:(NSString *)sql completion:(void (^)(NSArray *array))completion{
-    
++ (void)objectsFromCache:(NSString *)sql
+                 success:(void (^)(NSArray *array))success
+                 failure:(void (^)(NSError *error))failure{
+    // 1.执行SQL语句
+    [[VODBCache sharedCache].cacheQueue inTransaction:^(FMDatabase *db, BOOL *rollback) {
+        FMResultSet *rs = [db executeQuery:sql];
+        NSMutableArray *array = [NSMutableArray array];
+        while ([rs next]) {
+            id obj = [[self class] objectWithKeyValues:rs.resultDictionary];
+            if (obj) {
+                [array addObject:obj];
+            }
+        }
+        [self completionActionWithDB:db data:array success:success failure:failure];
+    }];
 }
 
-+ (void)objectArrayFromCache:(NSDictionary *)condition sort:(NSDictionary *)sort start:(NSInteger)start count:(NSInteger)count completion:(void (^)(NSArray *array))completion{
-    
++ (void)objectsFromCache:(NSArray *)condition
+                    sort:(NSArray *)sort
+                   start:(NSInteger)start
+                   count:(NSInteger)count
+                 success:(void (^)(NSArray *array))success
+                 failure:(void (^)(NSError *error))failure{
+    // 1.表名
+    NSString *tableName = [[self class] dbTableName];
+    // 2.生成SQL语句
+    NSString *conditionStr = [self linkStringArrayWithAND:condition updateTime:NO];
+    NSString *sortStr      = [self linkStringArrayWithAND:sort updateTime:NO];
+    if (!conditionStr) {
+        NSError *error = [VODBCacheError errorWithVODBCacheErrorCode:VODBCacheErrorInvalidValueOrCondition];
+        [self completionActionWithDB:nil data:error success:success failure:failure];
+        return;
+    }
+    if (sortStr) {
+        sortStr = [NSString stringWithFormat:@"ORDER BY %@", sortStr];
+    }
+    NSString *sql = [NSString stringWithFormat:@"SELECT * FROM \"%@\" WHERE %@ %@ LIMIT %@,%@", tableName, conditionStr, sortStr, @(start), @(count)];
+    // 3.执行SQL语句
+    [[VODBCache sharedCache].cacheQueue inTransaction:^(FMDatabase *db, BOOL *rollback) {
+        FMResultSet *rs = [db executeQuery:sql];
+        NSMutableArray *array = [NSMutableArray array];
+        while ([rs next]) {
+            id obj = [[self class] objectWithKeyValues:rs.resultDictionary];
+            if (obj) {
+                [array addObject:obj];
+            }
+        }
+        [self completionActionWithDB:db data:array success:success failure:failure];
+    }];
 }
 
 #pragma mark - 执行指定的操作
-+ (void)queryObjectCountInCacheCompletion:(void (^)(NSInteger count))completion{
-    
++ (void)queryObjectsCountInCacheSuccess:(void (^)(NSNumber *count))success
+                                failure:(void (^)(NSError *error))failure{
+    // 1.表名
+    NSString *tableName = [[self class] dbTableName];
+    // 2.生成SQL语句
+    NSString *sql = [NSString stringWithFormat:@"SELECT count(*) FROM \"%@\"", tableName];
+    // 3.执行SQL语句
+    [[VODBCache sharedCache].cacheQueue inTransaction:^(FMDatabase *db, BOOL *rollback) {
+        FMResultSet *rs = [db executeQuery:sql];
+        NSInteger count = 0;
+        while ([rs next]) {
+            count = [rs longForColumnIndex:0];
+        }
+        [self completionActionWithDB:db data:@(count) success:success failure:failure];
+    }];
 }
 
-+ (void)queryObjectCountInCacheWithCondition:(NSArray *)condition Completion:(void (^)(NSInteger count))completion{
-    
++ (void)queryObjectsCountInCacheWithCondition:(NSArray *)condition
+                                     success:(void (^)(NSNumber *count))success
+                                      failure:(void (^)(NSError *error))failure{
+    // 1.表名
+    NSString *tableName = [[self class] dbTableName];
+    // 2.生成SQL语句
+    NSString *conditionStr = [self linkStringArrayWithAND:condition updateTime:NO];
+    if (!conditionStr) {
+        NSError *error = [VODBCacheError errorWithVODBCacheErrorCode:VODBCacheErrorInvalidValueOrCondition];
+        [self completionActionWithDB:nil data:error success:success failure:failure];
+        return;
+    }
+    NSString *sql = [NSString stringWithFormat:@"SELECT count(*) FROM \"%@\" WHERE %@", tableName, conditionStr];
+    // 3.执行SQL语句
+    [[VODBCache sharedCache].cacheQueue inTransaction:^(FMDatabase *db, BOOL *rollback) {
+        FMResultSet *rs = [db executeQuery:sql];
+        NSInteger count = 0;
+        while ([rs next]) {
+            count = [rs longForColumnIndex:0];
+        }
+        [self completionActionWithDB:db data:@(count) success:success failure:failure];
+    }];
 }
 
-+ (void)querySQL:(NSString *)sql completion:(void (^)(FMResultSet *rs))completion{
-    
++ (void)querySQL:(NSString *)sql
+         success:(void (^)(FMResultSet *rs))success
+         failure:(void (^)(NSError *error))failure{
+    // 1.执行SQL语句
+    [[VODBCache sharedCache].cacheQueue inTransaction:^(FMDatabase *db, BOOL *rollback) {
+        FMResultSet *rs = [db executeQuery:sql];
+        [self completionActionWithDB:db data:rs success:success failure:failure];
+    }];
 }
 
-+ (void)updateSQL:(NSString *)sql completion:(void (^)(BOOL result))completion{
-    
++ (void)updateSQL:(NSString *)sql
+          success:(void (^)(NSNumber  *result))success
+          failure:(void (^)(NSError *error))failure{
+    // 1.执行SQL语句
+    [[VODBCache sharedCache].cacheQueue inTransaction:^(FMDatabase *db, BOOL *rollback) {
+        BOOL result = [db executeUpdate:sql];
+        [self completionActionWithDB:db data:@(result) success:success failure:failure];
+    }];
 }
-
 
 #pragma mark - 私有方法
 /**
@@ -287,14 +420,18 @@ static const void *VOUpdateTimeKey = &VOUpdateTimeKey;
         VOLog(@"Class \"%@\" 没有要缓存的字段,无需创建表",NSStringFromClass([self class]));
         return;
     }
-    // 删除SQL语句创建字段部分的最后一个逗号
-    [fieldsSql deleteCharactersInRange:NSMakeRange(fieldsSql.length - 1, 1)];
-    // 2.表名
+    // 2.唯一性约束,主键(缓存只使用一个主键作为唯一性约束)
+    if ([[self class] respondsToSelector:@selector(allowUpdatePropertyNamesForCache)]) {
+        [fieldsSql appendFormat:@"\"%@\" TEXT NOT NULL ON CONFLICT FAIL PRIMARY KEY", SQL_ConstraintKey];
+    }
+    else{
+        [fieldsSql appendFormat:@"\"%@\" INTEGER NOT NULL ON CONFLICT FAIL PRIMARY KEY AUTOINCREMENT", SQL_ConstraintKey];
+    }
+
+    // 3.表名
     NSString *tableName = [self dbTableName];
-    // 3.唯一性约束,主键(缓存只使用一个主键作为唯一性约束)
-    NSString *primeryKey = [NSString stringWithFormat:@",PRIMARY KEY(\"%@\")", SQL_ConstraintKey];
     // 4.创建缓存用的数据表
-    NSString *sql =[NSString stringWithFormat:@"CREATE TABLE IF NOT EXISTS %@ (%@%@)",tableName, fieldsSql, primeryKey];
+    NSString *sql =[NSString stringWithFormat:@"CREATE TABLE IF NOT EXISTS %@ (%@)",tableName, fieldsSql];
     VOLog(@"Class \"%@\"表: %@",NSStringFromClass([self class]),sql);
     [[VODBCache sharedCache].cacheQueue inTransaction:^(FMDatabase *db, BOOL *rollback) {
         BOOL result =[db executeUpdate:sql];
@@ -305,6 +442,41 @@ static const void *VOUpdateTimeKey = &VOUpdateTimeKey;
     }];
 }
 
+/**
+ *  数据库操作完成后执行的动作
+ *
+ *  @param db      执行操作的数据库,若为nil,则用data传入自定义错误
+ *  @param data    数据库操作成功后的block参数,db为空时传入自定义错误
+ *  @param success 成功后执行操作,参数为data
+ *  @param failure 失败后执行的操作,参数为error
+ */
++ (void)completionActionWithDB:(FMDatabase *)db
+                          data:(id)data
+                       success:(void (^)(id data))success
+                       failure:(void (^)(NSError *error))failure{
+    NSError *error = db ? [db lastError] : ((data && [data isKindOfClass:[NSError class]]) ? data : [VODBCacheError errorWithVODBCacheErrorCode:VODBCacheErrorUnknown]);
+    /** 数据库错误只考虑IO类型,自定义错误则处理所有 */
+    if ((db && error && error.code == 10) || (!db && error)) {
+        if (failure) {
+            dispatch_sync(dispatch_get_main_queue(), ^{
+                failure(error);
+            });
+        }
+    }
+    else{
+        if (success) {
+            dispatch_sync(dispatch_get_main_queue(), ^{
+                success(data);
+            });
+        }
+    }
+}
+
+/**
+ *  返回当前缓存Class对应的数据表名
+ *
+ *  @return 数据表名
+ */
 + (NSString *)dbTableName{
     NSString *tableName = nil;
     if ([self respondsToSelector:@selector(manualTableName)]) {

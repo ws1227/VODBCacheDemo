@@ -44,17 +44,4 @@
  */
 - (NSUInteger)dbCacheSize;
 
-/**
- *  数据库操作完成后执行的动作
- *
- *  @param db      执行操作的数据库
- *  @param data    数据库操作成功后的block参数
- *  @param success 成功后执行操作,参数为data
- *  @param failure 失败后执行的操作,参数为error
- */
-- (void)completionActionWithDB:(FMDatabase *)db
-                          data:(id)data
-                       success:(void (^)(id data))success
-                       failure:(void (^)(NSError *error))failure;
-
 @end

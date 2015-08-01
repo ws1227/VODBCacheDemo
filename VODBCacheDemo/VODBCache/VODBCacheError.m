@@ -16,16 +16,28 @@ NSString *const VODBCacheErrorDomain          = @"com.valo.vodbcache";   /**< RE
     NSString *errorString = @"未知错误";
     switch (code) {
         case VODBCacheSuccess: {
-            
-            break;
+            return nil;
         }
         case VODBCacheErrorNoConstraint: {
+            errorString = @"无效的约束,或者没有约束字段";
+            break;
+        }
+        case VODBCacheErrorNoCacheField: {
+            errorString = @"没有可缓存的字段";
+            break;
+        }
+        case VODBCacheErrorNoCacheObject: {
+            errorString = @"没有可缓存的数据";
+            break;
+        }
+        case VODBCacheErrorInvalidValueOrCondition: {
+            errorString = @"无效的值或条件";
+            break;
+        }
             
+        case VODBCacheErrorUnknown:
+        default:
             break;
-        }
-        default: {
-            break;
-        }
     }
     return [NSError errorWithDomain:VODBCacheErrorDomain code:code userInfo:@{@"message":errorString}];
 }

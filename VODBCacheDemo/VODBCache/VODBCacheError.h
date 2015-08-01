@@ -13,7 +13,10 @@ typedef NS_ENUM(NSUInteger, VODBCacheErrorCode) {
     
     VODBCacheErrorNoConstraint = 1001,
     VODBCacheErrorNoCacheField,
+    VODBCacheErrorNoCacheObject,
     VODBCacheErrorInvalidValueOrCondition,
+    
+    VODBCacheErrorUnknown = 9999,
 };
 
 @interface VODBCacheError : NSObject

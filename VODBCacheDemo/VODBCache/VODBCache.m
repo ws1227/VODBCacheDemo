@@ -69,26 +69,5 @@ static VODBCache *_sharedCache;
     return  (error)? 0: (NSUInteger)dbFileAttrs.fileSize;
 }
 
-- (void)completionActionWithDB:(FMDatabase *)db
-                          data:(id)data
-                       success:(void (^)(id data))success
-                       failure:(void (^)(NSError *error))failure{
-    NSError *error = [db lastError];
-    /** 只考虑IO错误, 忽略其他类型错误 */
-    if (error && error.code == 10) {
-        if (failure) {
-            dispatch_sync(dispatch_get_main_queue(), ^{
-                failure(error);
-            });
-        }
-    }
-    else{
-        if (success) {
-            dispatch_sync(dispatch_get_main_queue(), ^{
-                success(data);
-            });
-        }
-    }
-}
 
 @end
