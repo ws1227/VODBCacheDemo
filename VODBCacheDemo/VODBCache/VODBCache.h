@@ -8,6 +8,8 @@
 
 #import <Foundation/Foundation.h>
 #import "FMDB.h"
+
+//#define VO_DEBUG
 #ifdef VO_DEBUG
 #define VOLog( s, ... ) NSLog( @"<%@:(%d)> %@", [[NSString stringWithUTF8String:__FILE__] lastPathComponent], __LINE__, [NSString stringWithFormat:(s), ##__VA_ARGS__] )
 #define VODebugTimeStart NSDate *debugTimeStart = [NSDate date]

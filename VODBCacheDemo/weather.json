@@ -1,0 +1,40 @@
+ [
+  {
+		"altitude": "507",
+		"city": "成都",
+		"citycode": "101270101",
+		"date": "15-08-03",
+		"h_tmp": "34",
+		"l_tmp": "24",
+		"latitude": 30.67,
+		"longitude": 104.071,
+		"pinyin": "chengdu",
+		"postCode": "610000",
+		"sunrise": "06:22",
+		"sunset": "19:57",
+		"temp": "34",
+		"time": "08:00",
+		"WD": "南风",
+		"weather": "阴",
+		"WS": "微风(<10m/h)"
+  },
+  {
+		"altitude": "260",
+		"city": "重庆",
+		"citycode": "101040100",
+		"date": "15-08-03",
+		"h_tmp": "38",
+		"l_tmp": "29",
+		"latitude": 29.581,
+		"longitude": 106.549,
+		"pinyin": "chongqing",
+		"postCode": "400000",
+		"sunrise": "06:14",
+		"sunset": "19:45",
+		"temp": "38",
+		"time": "11:00",
+		"WD": "无持续风向",
+		"weather": "多云",
+		"WS": "微风(<10m/h)"
+  }
+]

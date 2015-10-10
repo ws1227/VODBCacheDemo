@@ -12,6 +12,10 @@
 #import "VODBCache.h"
 #import "VODBCacheError.h"
 
+FOUNDATION_EXPORT NSString *const VODBConstraint;
+FOUNDATION_EXPORT NSString *const VODBCreateTime;
+FOUNDATION_EXPORT NSString *const VODBUpdateTime;
+
 @protocol VODBCache <NSObject>
 @optional
 /**
@@ -22,15 +26,18 @@
 + (NSString *)manualTableName;
 
 /**
- *  此数组中的属性值将用于创建唯一性约束.
- *  如果数据模型实现了此方法,将会用数组中的属性值组合生成voconstraint字段,用作唯一性约束.
+ *  此方法用于创建唯一性约束.
+ *  如果数据模型实现了此方法,生成的值将会存储在voconstraint字段,用作唯一性约束.
+ *  若未实现此方法,则使用sqlite自动生成的数字,仍然存储在voconstraint字段中
  *
- *  @return 用于创建约束的属性值
+ *  @return 数据生成的唯一性约束
  */
-+ (NSArray  *)uniqueKeyPropertyNames;
+- (NSString  *)uniquenessConstraint;
 
 /**
  *  自定义不缓存的属性
+ *  ** 此处的属性数组,使用MJExtension替换后的key **
+ *  ** 比如原始json中为id,MJExtension替换后的key为identifier, 此处使用identifier **
  *
  *  @return 不缓存的属性名称数组
  */
@@ -38,21 +45,34 @@
 
 /**
  *  当发生冲突时只更新指定的属性
+ *  ** 此处的属性数组,使用MJExtension替换后的key **
+ *  ** 比如原始json中为id,MJExtension替换后的key为identifier, 此处使用identifier **
  *
  *  @return 当缓存发生冲突时,只更新指定的属性的名称数组
  */
 + (NSArray  *)allowUpdatePropertyNamesForCache;
 
+/**
+ *  当发生冲突时忽略更新的属性,
+ *  ** 优先级高于 +allowUpdatePropertyNamesForCache **
+ *  ** 此处的属性数组,使用MJExtension替换后的key **
+ *  ** 比如原始json中为id,MJExtension替换后的key为identifier, 此处使用identifier **
+ *
+ *  @return 当缓存发生冲突时,忽略更的属性的名称数组
+ */
++ (NSArray  *)ignoredUpdatePropertyNamesForCache;
+
 @end
 
 @interface NSObject (VODBCache) <VODBCache>
-
+//自动增加以下三个属性
 @property (nonatomic, copy  ) NSString       *voconstraint;     /**< 唯一性约束 */
 @property (nonatomic, assign) NSTimeInterval vocreatetime;      /**< 创建时间  */
 @property (nonatomic, assign) NSTimeInterval voupdatetime;      /**< 更新时间  */
 
 /**
  *  初始化此数据模型的缓存
+ *  在声明Model的 +load 方法中调用即可.
  */
 + (void)initVODBCache;
 
@@ -72,6 +92,17 @@
                    failure:(void (^)(NSError *error))failure;
 
 /**
+ *  缓存一条数据,指定缓存完成后执行指定的操作
+ *
+ *  @param update     当发生唯一性冲突时,是否自动更新数据,默认不更新
+ *  @param success    操作成功后的操作
+ *  @param failure    操作失败后的操作
+ */
+- (void)cacheObjectUpdateWhenConflict:(BOOL)update
+                              success:(void (^)(id data))success
+                              failure:(void (^)(NSError *error))failure;
+
+/**
  *  缓存一组数据
  *
  *  @param array 要缓存的数据数组
@@ -86,8 +117,21 @@
  *  @param failure    操作失败后的操作
  */
 + (void)cacheObjects:(NSArray *)array
-                 success:(void (^)(NSArray *array))success
-                 failure:(void (^)(NSError *error))failure;
+             success:(void (^)(NSArray *array))success
+             failure:(void (^)(NSError *error))failure;
+
+/**
+ *  缓存一组数据,指定缓存完成后执行指定的操作
+ *
+ *  @param array      要缓存的数据数组
+ *  @param update     当发生唯一性冲突时,是否自动更新数据,默认不更新
+ *  @param success    操作成功后的操作
+ *  @param failure    操作失败后的操作
+ */
++ (void)cacheObjects:(NSArray *)array
+  updateWhenConflict:(BOOL)update
+             success:(void (^)(NSArray *array))success
+             failure:(void (^)(NSError *error))failure;
 
 #pragma mark - 更新数据
 /**
@@ -125,6 +169,8 @@
  *                    可以是复杂的表达式,数组中的每个表达式将以AND连接
  *  @param condition  条件(字符串)数组,比如 'status'=1,'age'>18 等.
  *                    可以是复杂的表达式,数组中的每个表达式将以AND连接
+ *                    ** condition中的字段名必须使用原始json数据的key名称**
+ *                    ** 比如原始json中的key为id,使用MJExtension转换成了identifier, 但是此处仍然使用id **
  */
 + (void)updateCacheObjectsWithValues:(NSArray *)values
                            condition:(NSArray *)condition;
@@ -136,6 +182,8 @@
  *                    可以是复杂的表达式,数组中的每个表达式将以AND连接
  *  @param condition  条件(字符串)数组,比如 'status'=1,'age'>18 等.
  *                    可以是复杂的表达式,数组中的每个表达式将以AND连接
+ *                    ** condition中的字段名必须使用原始json数据的key名称**
+ *                    ** 比如原始json中的key为id,使用MJExtension转换成了identifier, 但是此处仍然使用id **
  *  @param success    操作成功后的操作
  *  @param failure    操作失败后的操作
  */
@@ -145,6 +193,14 @@
                              failure:(void (^)(NSError *error))failure;
 
 #pragma mark - 从缓存中删除数据
+/**
+ *  从缓存删除所有数据
+ *
+ *  @param success    操作成功后的操作
+ *  @param failure    操作失败后的操作
+ */
++ (void)removeAllCachedObjectsSuccess:(void (^)(NSArray *array))success
+                              failure:(void (^)(NSError *error))failure;
 /**
  *  从缓存中删除一条数据
  */
@@ -182,6 +238,8 @@
  *
  *  @param condition  条件(字符串)数组,比如 'name'='张三','age'>18 等.
  *                    可以是复杂的表达式,数组中的每个表达式将以AND连接
+ *                    ** condition中的字段名必须使用原始json数据的key名称**
+ *                    ** 比如原始json中的key为id,使用MJExtension转换成了identifier, 但是此处仍然使用id **
  *  @param success    操作成功后的操作
  *  @param failure    操作失败后的操作
  */
@@ -197,15 +255,17 @@
  *  @param success    操作成功后的操作
  *  @param failure    操作失败后的操作
  */
-+ (void)objectsFromCache:(NSString *)sql
-                 success:(void (^)(NSArray *array))success
-                 failure:(void (^)(NSError *error))failure;
++ (void)objectsFromCacheWithSQL:(NSString *)sql
+                        success:(void (^)(NSArray *array))success
+                        failure:(void (^)(NSError *error))failure;
 
 /**
  *  按指定条件从缓存中读取数据
  *
  *  @param condition  条件(字符串)数组,比如 'name'='张三','age'>18 等.
  *                    可以是复杂的表达式,数组中的每个表达式将以AND连接
+ *                    ** condition中的字段名必须使用原始json数据的key名称**
+ *                    ** 比如原始json中的key为id,使用MJExtension转换成了identifier, 但是此处仍然使用id **
  *  @param sort       排序方式(字符串)数组,比如 name DESC, age ASC 等
  *                    可以是复杂的表达式,数组中的每个表达式将以AND连接
  *  @param start      起始条目数
@@ -213,12 +273,12 @@
  *  @param success    操作成功后的操作
  *  @param failure    操作失败后的操作
  */
-+ (void)objectsFromCache:(NSArray *)condition
-                    sort:(NSArray *)sort
-                   start:(NSInteger)start
-                   count:(NSInteger)count
-                 success:(void (^)(NSArray *array))success
-                 failure:(void (^)(NSError *error))failure;
++ (void)objectsFromCacheWithCondition:(NSArray *)condition
+                                 sort:(NSArray *)sort
+                                start:(NSInteger)start
+                                count:(NSInteger)count
+                              success:(void (^)(NSArray *array))success
+                              failure:(void (^)(NSError *error))failure;
 
 #pragma mark - 执行指定的操作
 /**
@@ -235,6 +295,8 @@
  *
  *  @param condition  条件(字符串)数组,比如 'name'='张三','age'>18 等.
  *                    可以是复杂的表达式,数组中的每个表达式将以AND连接
+ *                    ** condition中的字段名必须使用原始json数据的key名称**
+ *                    ** 比如原始json中的key为id,使用MJExtension转换成了identifier, 但是此处仍然使用id **
  *  @param success    操作成功后的操作
  *  @param failure    操作失败后的操作
  */

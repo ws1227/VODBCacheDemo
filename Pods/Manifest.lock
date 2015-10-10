@@ -1,17 +1,46 @@
 PODS:
+  - AFNetworking (2.6.0):
+    - AFNetworking/NSURLConnection (= 2.6.0)
+    - AFNetworking/NSURLSession (= 2.6.0)
+    - AFNetworking/Reachability (= 2.6.0)
+    - AFNetworking/Security (= 2.6.0)
+    - AFNetworking/Serialization (= 2.6.0)
+    - AFNetworking/UIKit (= 2.6.0)
+  - AFNetworking/NSURLConnection (2.6.0):
+    - AFNetworking/Reachability
+    - AFNetworking/Security
+    - AFNetworking/Serialization
+  - AFNetworking/NSURLSession (2.6.0):
+    - AFNetworking/Reachability
+    - AFNetworking/Security
+    - AFNetworking/Serialization
+  - AFNetworking/Reachability (2.6.0)
+  - AFNetworking/Security (2.6.0)
+  - AFNetworking/Serialization (2.6.0)
+  - AFNetworking/UIKit (2.6.0):
+    - AFNetworking/NSURLConnection
+    - AFNetworking/NSURLSession
   - FMDB (2.5):
     - FMDB/standard (= 2.5)
   - FMDB/common (2.5)
   - FMDB/standard (2.5):
     - FMDB/common
-  - MJExtension (2.5.3)
+  - MJExtension (2.5.12)
+  - Toast (2.4)
+  - ViewUtils (1.1.2)
 
 DEPENDENCIES:
+  - AFNetworking
   - FMDB
   - MJExtension
+  - Toast
+  - ViewUtils
 
 SPEC CHECKSUMS:
+  AFNetworking: 79f7eb1a0fcfa7beb409332b2ca49afe9ce53b05
   FMDB: 96e8f1bcc1329e269330f99770ad4285d9003e52
-  MJExtension: d636ed42d1af44cba81106ae7831cccb66906eb7
+  MJExtension: 5ab633484e431f777387c70b676c80f993361f1b
+  Toast: 0773b8fc0e97352ca6054517bec7ebdd4110029d
+  ViewUtils: 68e42c708a4b3912e39691cef5080282dc5013fb
 
 COCOAPODS: 0.38.2

@@ -18,7 +18,7 @@ static VODBCache *_sharedCache;
 + (instancetype)sharedCache{
     @synchronized(self){
         if (!_sharedCache) {
-            _sharedCache = [[self alloc] init];
+            _sharedCache = [[super allocWithZone:NULL] init];
         }
     }
     return _sharedCache;
@@ -46,8 +46,7 @@ static VODBCache *_sharedCache;
 - (FMDatabaseQueue *)cacheQueue{
     @synchronized(self){
         if (!_cacheQueue) {
-            _cacheQueue = [FMDatabaseQueue databaseQueueWithPath:self.dbPath flags:
-                          SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX | SQLITE_OPEN_WAL];
+            _cacheQueue = [FMDatabaseQueue databaseQueueWithPath:self.dbPath];
         }
     }
     return _cacheQueue;
