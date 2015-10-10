@@ -2,7 +2,7 @@
 
 注:  本项目包含了 数据缓存(VODBCache), 网络请求缓存(VOURLCache).VOURLCache未经严格测试,慎用.
 
-数据缓存(VODBCache)说明:
+# 数据缓存(VODBCache)说明:
 
 1. 项目中必须包含MJExtension和FMDB,主要用于缓存网络请求获取的JSON对象
 
@@ -18,11 +18,11 @@
 
 7. 创建数据表时,会自动创建3个字段 voconstraint(唯一性约束), vocreatetime(创建时间), 更新时间(voupdatetime)
 
-数据缓存(VODBCache)具体用法:
+# 数据缓存(VODBCache)具体用法:
 
 1. 在数据模型的.h或者.m文件中包含
 
-	#import "NSObject+VODBCache.h"
+		#import "NSObject+VODBCache.h"
 
 	实现 + load 方法如下:
 
@@ -90,7 +90,8 @@
 欢迎大家多提issue.
 
 
-网络请求缓存(VOURLCache)说明:
+
+# 网络请求缓存(VOURLCache)说明:
 
 1. VOURLCache基于AFNetworking, 并在 AFHTTPRequestOperationManager 的分类中重写了方法(编译会有警告,请忽略):
 
@@ -102,7 +103,7 @@
 
 2. 在 VOURLCache 的 + load 方法中设置了sharedURLCache, 如果需要请自行修改. 如果要使用VOURLCache,必须将sharedURLCache 设置为 VOURLCache,否则不起作用.
 
-网络请求缓存(VOURLCache)使用方法:
+# 网络请求缓存(VOURLCache)使用方法:
 
 1. 参照 VOURLCache的 + load 方法的代码,  设置 cache 的 ignoreRequestFields属性, 通常忽略一些每次请求都会发生变化的属性, 比如各种时间戳;
 
